@@ -1,0 +1,6 @@
+venv/
+rep_localstack/
+__pycache__/
+*.zip
+*.json
+.env

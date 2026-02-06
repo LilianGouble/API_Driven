@@ -1,83 +1,140 @@
-------------------------------------------------------------------------------------------------------
-ATELIER API-DRIVEN INFRASTRUCTURE
-------------------------------------------------------------------------------------------------------
-L’idée en 30 secondes : **Orchestration de services AWS via API Gateway et Lambda dans un environnement émulé**.  
-Cet atelier propose de concevoir une architecture **API-driven** dans laquelle une requête HTTP déclenche, via **API Gateway** et une **fonction Lambda**, des actions d’infrastructure sur des **instances EC2**, le tout dans un **environnement AWS simulé avec LocalStack** et exécuté dans **GitHub Codespaces**. L’objectif est de comprendre comment des services cloud serverless peuvent piloter dynamiquement des ressources d’infrastructure, indépendamment de toute console graphique.Cet atelier propose de concevoir une architecture API-driven dans laquelle une requête HTTP déclenche, via API Gateway et une fonction Lambda, des actions d’infrastructure sur des instances EC2, le tout dans un environnement AWS simulé avec LocalStack et exécuté dans GitHub Codespaces. L’objectif est de comprendre comment des services cloud serverless peuvent piloter dynamiquement des ressources d’infrastructure, indépendamment de toute console graphique.
-  
--------------------------------------------------------------------------------------------------------
-Séquence 1 : Codespace de Github
--------------------------------------------------------------------------------------------------------
-Objectif : Création d'un Codespace Github  
-Difficulté : Très facile (~5 minutes)
--------------------------------------------------------------------------------------------------------
-RDV sur Codespace de Github : <a href="https://github.com/features/codespaces" target="_blank">Codespace</a> **(click droit ouvrir dans un nouvel onglet)** puis créer un nouveau Codespace qui sera connecté à votre Repository API-Driven.
-  
----------------------------------------------------
-Séquence 2 : Création de l'environnement AWS (LocalStack)
----------------------------------------------------
-Objectif : Créer l'environnement AWS simulé avec LocalStack  
-Difficulté : Simple (~5 minutes)
----------------------------------------------------
+# TP : Architecture API-Driven avec LocalStack sur Codespaces
 
-Dans le terminal du Codespace copier/coller les codes ci-dessous etape par étape :  
+Ce projet implémente une architecture "API-Driven" cloud-native simulée. L'objectif est de piloter (démarrer/arrêter) une instance EC2 via une requête HTTP publique, en utilisant AWS Lambda et LocalStack, le tout hébergé au sein d'un GitHub Codespace.
 
-**Installation de l'émulateur LocalStack**  
-```
-sudo -i mkdir rep_localstack
-```
-```
-sudo -i python3 -m venv ./rep_localstack
-```
-```
-sudo -i pip install --upgrade pip && python3 -m pip install localstack && export S3_SKIP_SIGNATURE_VALIDATION=0
-```
-```
+## 🏗 Architecture Cible
+
+L'architecture repose sur le découplage entre le client et l'infrastructure :
+
+1.  **Client** : Envoie une requête HTTP (via `curl` ou Postman).
+2.  **Entrée (Function URL)** : Point d'entrée public exposant la Lambda.
+3.  **Compute (AWS Lambda)** : Contient la logique Python (`boto3`) pour interpréter l'ordre.
+4.  **Infrastructure (AWS EC2)** : La ressource cible simulée dans LocalStack.
+
+**Flux de données :**
+`Requête HTTP (POST)` -> `URL Publique Codespace` -> `Lambda Function` -> `LocalStack API (Port 4566)` -> `Action sur EC2`
+
+---
+
+## ⚙️ Pré-requis et Installation
+
+Ce projet est conçu pour être exécuté dans un **GitHub Codespace**.
+
+### 1. Préparer l'environnement
+Dans le terminal du Codespace :
+
+```bash
+# 1. Création et activation de l'environnement virtuel (bonne pratique)
+python3 -m venv venv
+source venv/bin/activate
+
+# 2. Installation des dépendances
+pip install localstack awscli boto3
+
+# 3. Démarrage de LocalStack en arrière-plan
 localstack start -d
 ```
-**vérification des services disponibles**  
+
+### 2. Configuration Réseau (CRITIQUE 🚨)
+
+Pour que la Lambda (qui tourne dans un conteneur Docker) puisse communiquer avec l'API LocalStack via l'URL publique, il faut ouvrir les vannes :
+
+* Ouvrir l'onglet PORTS dans VS Code.
+* Faire un clic-droit sur le port 4566.
+* Changer Port Visibility de Private à Public.
+* Copier l'adresse locale (ex: https://...app.github.dev) pour la suite.
+
+### 3. Variables d'environnement
+
+Configurez votre terminal avec les accès nécessaires :
 ```
-localstack status services
+# Remplacez par VOTRE URL publique copiée à l'étape précédente (sans slash à la fin)
+export ENDPOINT_URL="[https://votre-url-codespace-4566.app.github.dev](https://votre-url-codespace-4566.app.github.dev)"
+
+# Identifiants factices pour AWS CLI (requis par l'outil, même si LocalStack est permissif)
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
+export AWS_DEFAULT_REGION=us-east-1
 ```
-**Réccupération de l'API AWS Localstack** 
-Votre environnement AWS (LocalStack) est prêt. Pour obtenir votre AWS_ENDPOINT cliquez sur l'onglet **[PORTS]** dans votre Codespace et rendez public votre port **4566** (Visibilité du port).
-Réccupérer l'URL de ce port dans votre navigateur qui sera votre ENDPOINT AWS (c'est à dire votre environnement AWS).
-Conservez bien cette URL car vous en aurez besoin par la suite.  
+---
 
-Pour information : IL n'y a rien dans votre navigateur et c'est normal car il s'agit d'une API AWS (Pas un développement Web type UX).
+## 🚀 Déploiement de l'Infrastructure
+### 1. Lancement de l'instance EC2
 
----------------------------------------------------
-Séquence 3 : Exercice
----------------------------------------------------
-Objectif : Piloter une instance EC2 via API Gateway
-Difficulté : Moyen/Difficile (~2h)
----------------------------------------------------  
-Votre mission (si vous l'acceptez) : Concevoir une architecture **API-driven** dans laquelle une requête HTTP déclenche, via **API Gateway** et une **fonction Lambda**, lancera ou stopera une **instance EC2** déposée dans **environnement AWS simulé avec LocalStack** et qui sera exécuté dans **GitHub Codespaces**. [Option] Remplacez l'instance EC2 par l'arrêt ou le lancement d'un Docker.  
+Nous créons une machine virtuelle simulée qui servira de cible.
 
-**Architecture cible :** Ci-dessous, l'architecture cible souhaitée.   
-  
-![Screenshot Actions](API_Driven.png)   
-  
----------------------------------------------------  
-## Processus de travail (résumé)
+```
+aws ec2 run-instances \
+    --image-id ami-df5de72ade3b4238 \
+    --count 1 \
+    --instance-type t2.micro \
+    --endpoint-url $ENDPOINT_URL \
+    --no-verify-ssl
+```
+Notez l'ID de l'instance retourné dans le JSON (ex: i-xxxxxxxx). Il sera nécessaire pour les tests.
 
-1. Installation de l'environnement Localstack (Séquence 2)
-2. Création de l'instance EC2
-3. Création des API (+ fonction Lambda)
-4. Ouverture des ports et vérification du fonctionnement
+### 2. Déploiement de la Fonction Lambda
 
----------------------------------------------------
-Séquence 4 : Documentation  
-Difficulté : Facile (~30 minutes)
----------------------------------------------------
-**Complétez et documentez ce fichier README.md** pour nous expliquer comment utiliser votre solution.  
-Faites preuve de pédagogie et soyez clair dans vos expliquations et processus de travail.  
-   
----------------------------------------------------
-Evaluation
----------------------------------------------------
-Cet atelier, **noté sur 20 points**, est évalué sur la base du barème suivant :  
-- Repository exécutable sans erreur majeure (4 points)
-- Fonctionnement conforme au scénario annoncé (4 points)
-- Degré d'automatisation du projet (utilisation de Makefile ? script ? ...) (4 points)
-- Qualité du Readme (lisibilité, erreur, ...) (4 points)
-- Processus travail (quantité de commits, cohérence globale, interventions externes, ...) (4 points) 
+La fonction contient le code Python (lambda_function.py) capable d'envoyer des commandes Start/Stop à l'EC2.
+```
+# 1. Empaquetage du code
+zip function.zip lambda_function.py
+
+# 2. Création de la fonction sur LocalStack
+aws lambda create-function \
+    --function-name MaFonctionAPI \
+    --zip-file fileb://function.zip \
+    --handler lambda_function.lambda_handler \
+    --runtime python3.9 \
+    --role arn:aws:iam::000000000000:role/lambda-role \
+    --endpoint-url $ENDPOINT_URL \
+    --no-verify-ssl
+
+# 3. Configuration de la liaison réseau (Le point clé !)
+# On indique à la Lambda où trouver l'API LocalStack via une variable d'environnement.
+aws lambda update-function-configuration \
+    --function-name MaFonctionAPI \
+    --environment "Variables={LOCALSTACK_URL=$ENDPOINT_URL}" \
+    --endpoint-url $ENDPOINT_URL \
+    --no-verify-ssl
+3. Exposition Publique (API)
+```
+
+Nous créons une "Function URL" pour rendre la Lambda accessible via HTTP.
+
+```
+aws lambda create-function-url-config \
+    --function-name MaFonctionAPI \
+    --auth-type NONE \
+    --endpoint-url $ENDPOINT_URL \
+    --no-verify-ssl
+```
+Récupérez l'URL fournie dans le champ FunctionUrl. Astuce : Si l'URL retournée contient localhost.localstack.cloud, remplacez ce domaine par localhost ou utilisez l'ID de fonction directement si vous testez depuis le même réseau.
+---
+## 📡 Utilisation (Test de l'API)
+Voici comment piloter votre infrastructure via des appels API REST.
+
+Endpoint : Utilisez l'URL obtenue à l'étape précédente (format : http://<function-id>.lambda-url...).
+
+Arrêter l'instance (Stop)
+```
+curl -X POST \
+http://<VOTRE_FUNCTION_URL_ID>.lambda-url.us-east-1.localhost.localstack.cloud:4566 \
+-H 'Content-Type: application/json' \
+-d '{"action": "stop", "instance_id": "i-xxxxxxxx"}'
+Démarrer l'instance (Start)
+```
+
+```
+curl -X POST \
+http://<VOTRE_FUNCTION_URL_ID>.lambda-url.us-east-1.localhost.localstack.cloud:4566 \
+-H 'Content-Type: application/json' \
+-d '{"action": "start", "instance_id": "i-xxxxxxxx"}'
+Vérification
+```
+
+Pour confirmer que l'action a bien eu lieu, vous pouvez interroger l'état de l'EC2 :
+```
+aws ec2 describe-instances --instance-ids i-xxxxxxxx --endpoint-url $ENDPOINT_URL --no-verify-ssl
+```
+Vous verrez l'état passer de running à stopped (code 80).

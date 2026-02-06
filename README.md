@@ -48,7 +48,7 @@ Pour information : IL n'y a rien dans votre navigateur et c'est normal car il s'
 ---------------------------------------------------
 Séquence 3 : Exercice
 ---------------------------------------------------
-Objectif : Customisez un image Docker avec Packer et déploiement sur K3d via Ansible
+Objectif : Piloter une instance EC2 via API Gateway
 Difficulté : Moyen/Difficile (~2h)
 ---------------------------------------------------  
 Votre mission (si vous l'acceptez) : Concevoir une architecture **API-driven** dans laquelle une requête HTTP déclenche, via **API Gateway** et une **fonction Lambda**, lancera ou stopera une **instance EC2** déposée dans **environnement AWS simulé avec LocalStack** et qui sera exécuté dans **GitHub Codespaces**. [Option] Remplacez l'instance EC2 par l'arrêt ou le lancement d'un Docker.  
@@ -60,7 +60,7 @@ Votre mission (si vous l'acceptez) : Concevoir une architecture **API-driven** d
 ---------------------------------------------------  
 ## Processus de travail (résumé)
 
-1. Installation de l'environnement Localstack (Séquence 1)
+1. Installation de l'environnement Localstack (Séquence 2)
 2. Création de l'instance EC2
 3. Création des API (+ fonction Lambda)
 4. Ouverture des ports et vérification du fonctionnement
